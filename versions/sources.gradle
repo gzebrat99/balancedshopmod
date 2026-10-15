@@ -1,0 +1,309 @@
+// Keep version adaptations isolated; never change the tested 1.21.11 release sources.
+def root = file('../..')
+def generated = layout.buildDirectory.dir('generated')
+def mc = target.minecraft
+def nativeLoader = !project.name.endsWith('fabric')
+def loader = project.name.contains('neoforge') && !target.neoforgeLegacy ? 'neoforge' : 'forge'
+def older = { String boundary ->
+    def parts = { String s -> (s.tokenize('.') + ['0','0']).take(3).collect { it as int } }
+    def a = parts(mc), b = parts(boundary)
+    for(int i=0;i<3;i++) { if(a[i]!=b[i]) return a[i]<b[i] }
+    false
+}
+tasks.register('generateVersionSources') {
+    inputs.files(fileTree("${root}/src/main/java"),fileTree("${root}/src/client/java"),fileTree("${root}/src/main/resources"))
+    inputs.property 'minecraft',mc
+    inputs.property 'modVersion',project.version.toString()
+    inputs.file file('../matrix.json')
+    inputs.file file('../sources.gradle')
+    inputs.files(fileTree('../legacy'))
+    inputs.files(fileTree('../verification'))
+    inputs.files(fileTree('../forge1201'))
+    inputs.files(fileTree('../fabric1201'))
+    if(nativeLoader) inputs.files(fileTree("${root}/ports/shared/src"),fileTree("${root}/ports/${loader}/src"))
+    outputs.dir generated
+    doLast {
+        def out=generated.get().asFile.canonicalFile
+        if(!out.toPath().startsWith(layout.buildDirectory.get().asFile.canonicalFile.toPath()))throw new GradleException("Unsafe generated directory")
+        delete out
+        ['classes/java/main','classes/java/client','resources/main','resources/client'].each { path ->
+            def stale=layout.buildDirectory.dir(path).get().asFile.canonicalFile
+            if(!stale.toPath().startsWith(layout.buildDirectory.get().asFile.canonicalFile.toPath()))throw new GradleException('Unsafe build output directory')
+            delete stale
+        }
+        ['main','client'].each { side ->
+            fileTree("${root}/src/${side}/java").matching { include '**/*.java' }.each { src ->
+                if(nativeLoader && src.name == 'ModContent.java') return
+                String content = src.getText('UTF-8')
+                if(!nativeLoader && src.name=='BalancedShop.java') content=content.replace('ModContent.initialize();','ModContent.initialize();\n        if(Boolean.getBoolean("balancedshop.verify")){dev.eymen.balancedshop.verification.ServerVerification.registerItems();dev.eymen.balancedshop.verification.ServerVerification.install();}')
+                if(!nativeLoader && src.name=='ShopClient.java')content=content.replace('SellTooltip.register();','SellTooltip.register();\n        if(Boolean.getBoolean("balancedshop.verify"))dev.eymen.balancedshop.verification.ClientVerification.install();')
+                if(!nativeLoader && src.name=='ShopClient.java')content=content.replace('SellTooltip.register();','SellTooltip.register();\n        int[] colors={0xD79E62,0xBDDCEC,0xFFD15E,0xB8A0FF};for(int i=0;i<4;i++){final int color=0xFF000000|colors[i];net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register((stack,tint)->color,dev.eymen.balancedshop.CoinItems.entry(i).item());}')
+                if(nativeLoader) {
+                    content = content.readLines().collect { line ->
+                        if(line.startsWith('import net.fabricmc.')) {
+                            if(line.contains('networking.v1.*')) return line.contains('.client.') ? 'import dev.eymen.balancedshop.bridge.ClientBridge.*;' : 'import dev.eymen.balancedshop.bridge.ServerBridge.*;'
+                            def name = line.substring(line.lastIndexOf('.')+1).replace(';','')
+                            def client = line.contains('.client.') || name == 'ClientModInitializer'
+                            return 'import dev.eymen.balancedshop.bridge.' + (client ? 'ClientBridge.' : 'ServerBridge.') + name + ';'
+                        }
+                        line.replace('player.level().getServer().getPlayerList().save(player)', 'dev.eymen.balancedshop.bridge.PlayerPersistence.save(player)')
+                    }.join('\n')
+                }
+                if(older('1.21.11')) {
+                    content = content.replace('Identifier','ResourceLocation').replace('.identifier()', '.location()')
+                    content = content.replace('Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)', 'source -> source.hasPermission(2)')
+                    content = content.replace('net.minecraft.world.entity.npc.villager.', 'net.minecraft.world.entity.npc.')
+                    content = content.replace('EnchantmentHelper.createBook(', 'net.minecraft.world.item.EnchantedBookItem.createForEnchantment(')
+                    content = content.replace('g.renderOutline(', 'ShopTheme.outline(g,')
+                    content = content.replace('renderContents(GuiGraphics', 'renderWidget(GuiGraphics')
+                    if(src.name == 'ShopTheme.java') content = content.replace('public static final int TEAL=', 'public static void outline(GuiGraphics g,int x,int y,int w,int h,int color){g.fill(x,y,x+w,y+1,color);g.fill(x,y+h-1,x+w,y+h,color);g.fill(x,y,x+1,y+h,color);g.fill(x+w-1,y,x+w,y+h,color);}\n    public static final int TEAL=')
+                }
+                if(older('1.21.9')) {
+                    content = content.replace('KeyMapping.Category.register(ResourceLocation.fromNamespaceAndPath("balancedshop","shop"))', '"key.categories.balancedshop"')
+                    content = content.replace('renderContents(GuiGraphics', 'renderWidget(GuiGraphics')
+                }
+                if(older('1.21.6')) {
+                    content = content.replace('g.setTooltipForNextFrame(font,', 'g.renderTooltip(font,')
+                    content = content.replace('g.setTooltipForNextFrame(', 'g.renderTooltip(font,')
+                }
+                if(older('1.21.5')) {
+                    content = content.replace('.isClientSide()', '.isClientSide')
+                    content = content.replace('villager.getVillagerData().profession().is(VillagerProfession.WEAPONSMITH)', 'villager.getVillagerData().getProfession()==VillagerProfession.WEAPONSMITH')
+                    content = content.replace('player.level().getEntity(s.villager)', 'player.serverLevel().getEntity(s.villager)')
+                }
+                if(older('1.21.2')) {
+                    content = content.replaceAll(/\.setId\(ResourceKey\.create\(Registries\.(?:ITEM|BLOCK),(?:ID|SPAWNER_ID)\)\)/,'')
+                    content = content.replaceAll(/\.setId\(ResourceKey\.create\(Registries\.(?:ITEM|BLOCK),id\)\)/,'')
+                    content = content.replace('BuiltInRegistries.ITEM.getValue(', 'BuiltInRegistries.ITEM.get(').replace('BuiltInRegistries.ENTITY_TYPE.getValue(', 'BuiltInRegistries.ENTITY_TYPE.get(')
+                    content=content.replace('getString("shop_mob").orElse("")','getString("shop_mob")')
+                    content = content.replace('server.registryAccess().lookupOrThrow(', 'server.registryAccess().registryOrThrow(')
+                    content = content.replace('registry.listElements()', 'registry.holders()')
+                    content = content.replace('holder.id().location()', 'holder.id()')
+                    content = content.replace('prices.item(id).getCraftingRemainder().isEmpty()', '!prices.item(id).hasCraftingRemainingItem()')
+                    content = content.replace('ingredient.items().map(h->new ItemStack(h.value()))', 'java.util.Arrays.stream(ingredient.getItems())')
+                    content = content.replaceAll(/(?s)                var placement=recipe\.placementInfo\(\);.*?                int width=/, '                List<Ingredient> ingredients=recipe.getIngredients();\n                List<ItemStack> grid=new ArrayList<>();\n                for(Ingredient ingredient:ingredients) grid.add(ingredient.isEmpty()?ItemStack.EMPTY:choose(ingredient));\n                int width=')
+                    content = content.replace('manager.byKey(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE,ResourceLocation.parse(recipe)))', 'manager.byKey(ResourceLocation.parse(recipe))')
+                }
+                if(older('1.21')) {
+                    content = content.replace('ResourceLocation.fromNamespaceAndPath(', 'new ResourceLocation(')
+                    content = content.replace('ResourceLocation.parse(', 'new ResourceLocation(')
+                    content = content.replace('.getFirst()', '.get(0)')
+                    content = content.replace('resources.listResources("recipe",', 'resources.listResources("recipes",').replace('resourcesManager.listResources("recipe",', 'resourcesManager.listResources("recipes",')
+                    content = content.replace('path.substring(7,path.length()-5)', 'path.substring(8,path.length()-5)')
+                }
+                if(older('1.20.5')) {
+                    content = content.replace('import net.minecraft.core.component.DataComponents;','')
+                    if(src.name=='MarketScreen.java')content=content.replace('renderBackground(GuiGraphics g,int mx,int my,float delta)','renderBackground(GuiGraphics g)')
+                    if(src.name=='MobSpawnerItem.java'){
+                        content=content.replace('import net.minecraft.world.item.component.CustomData;','')
+                        content=content.replace('stack.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag()', 'stack.getOrCreateTag()').replace('stack.set(DataComponents.CUSTOM_DATA,CustomData.of(tag))','stack.setTag(tag)')
+                    }
+                    if(src.name=='VeinMiningService.java')content=content.replace('player.blockInteractionRange()', '(player.isCreative()?5.0:4.5)')
+                    if(src.name=='UncraftingTableBlock.java') {
+                        content=content.replace('import com.mojang.serialization.MapCodec;','')
+                        content=content.replaceAll(/(?m)^.*MapCodec.*\r?\n/,'')
+                        content=content.replace('protected InteractionResult useWithoutItem(BlockState state,Level level,BlockPos pos,Player player,BlockHitResult hit)', 'public InteractionResult use(BlockState state,Level level,BlockPos pos,Player player,net.minecraft.world.InteractionHand hand,BlockHitResult hit)')
+                    }
+                    content=content.replace('BlockBehaviour.Properties.ofFullCopy(', 'BlockBehaviour.Properties.copy(')
+                    if(nativeLoader && src.name=='CoinItems.java')content=content.replace('Registry.register(BuiltInRegistries.ITEM,id,', 'dev.eymen.balancedshop.legacy.NativeRegistrations.registerItem(id,')
+                    if(src.name=='BookCatalogue.java') {
+                        content=content.replace('import net.minecraft.tags.EnchantmentTags;','')
+                        int start=content.indexOf('        var registry=')
+                        int end=content.indexOf('        Files.createDirectories',start)
+                        content=content.substring(0,start)+file('../legacy/book-loop.java.txt').getText('UTF-8')+'\n'+content.substring(end)
+                        start=content.indexOf('        return book.getOrDefault(')
+                        end=content.indexOf('\n    }',start)
+                        content=content.substring(0,start)+'        return EnchantmentHelper.getEnchantments(book).entrySet().stream().findFirst().map(e->e.getKey().getFullname(e.getValue())).orElse(book.getHoverName());'+content.substring(end)
+                    }
+                    if(src.name=='UpgradeEngine.java') {
+                        content=content.replace('EnchantmentHelper.getEnchantmentsForCrafting(stack)', 'EnchantmentHelper.getEnchantments(stack)')
+                        content=content.replace('enchant.getKey().unwrapKey().orElseThrow().location().toString(),enchant.getIntValue()', 'BuiltInRegistries.ENCHANTMENT.getKey(enchant.getKey()).toString(),enchant.getValue()')
+                        int start=content.indexOf('    public static boolean eligible(')
+                        int end=content.indexOf('    public static long stakeValue(',start)
+                        content=content.substring(0,start)+'    public static boolean eligible(ItemStack stack,boolean enchant){return dev.eymen.balancedshop.legacy.LegacyValues.eligible(stack,enchant);}\n'+content.substring(end)
+                        content=content.replace('ItemStack valued=source.copy();if(enchant) valued.remove(DataComponents.CUSTOM_NAME);', 'ItemStack valued=enchant?dev.eymen.balancedshop.legacy.LegacyValues.withoutName(source):source.copy();')
+                        start=content.indexOf('            var existing=EnchantmentHelper.getEnchantmentsForCrafting(source);')
+                        end=content.indexOf('\n        }\n        found.sort',start)
+                        content=content.substring(0,start)+file('../legacy/upgrade-enchant.java.txt').getText('UTF-8')+content.substring(end)
+                    }
+                    if(src.name=='UncraftingCatalogue.java') {
+                        content=content.replace('for(RecipeHolder<?> holder:server.getRecipeManager().getRecipes())', 'for(Recipe<?> holder:server.getRecipeManager().getRecipes())').replace('holder.value() instanceof CraftingRecipe', 'holder instanceof CraftingRecipe').replace('holder.id()', 'holder.getId()')
+                        content=content.replace('CraftingInput input=CraftingInput.of(width,height,grid);', 'var input=new net.minecraft.world.inventory.TransientCraftingContainer(new dev.eymen.balancedshop.legacy.LegacyMenu(),width,height);for(int i=0;i<grid.size();i++)input.setItem(i,grid.get(i));')
+                    }
+                    content = content.replace('net.minecraft.network.RegistryFriendlyByteBuf','net.minecraft.network.FriendlyByteBuf').replace('RegistryFriendlyByteBuf','FriendlyByteBuf')
+                    content = content.replace('net.minecraft.network.codec.StreamCodec','dev.eymen.balancedshop.legacy.LegacyCodec').replace('StreamCodec','LegacyCodec')
+                    content = content.replace('net.minecraft.network.protocol.common.custom.CustomPacketPayload','dev.eymen.balancedshop.legacy.LegacyPayload').replace('CustomPacketPayload','LegacyPayload')
+                    content = content.replace('ItemStack.OPTIONAL_STREAM_CODEC','dev.eymen.balancedshop.legacy.LegacyStacks').replace('ItemStack.STREAM_CODEC','dev.eymen.balancedshop.legacy.LegacyStacks')
+                    content = content.replace('ItemStack.isSameItemSameComponents','ItemStack.isSameItemSameTags')
+                    content = content.replace('net.minecraft.world.item.enchantment.EnchantmentHelper.getEnchantmentsForCrafting(', 'net.minecraft.world.item.enchantment.EnchantmentHelper.getEnchantments(')
+                    if(src.name=='UpgradeScreen.java')content=content.replace('holder.unwrapKey().orElseThrow().location().toString()', 'net.minecraft.core.registries.BuiltInRegistries.ENCHANTMENT.getKey(holder).toString()').replace('net.minecraft.world.item.enchantment.Enchantment.getFullname(holder,level)', 'holder.getFullname(level)')
+                    content = content.replace('import net.fabricmc.fabric.api.networking.v1.*;', 'import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;\nimport dev.eymen.balancedshop.legacy.LegacyNetwork.*;')
+                    content = content.replace('import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;', 'import dev.eymen.balancedshop.legacy.LegacyNetwork.ServerPlayNetworking;')
+                    content = content.replace('import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;', 'import dev.eymen.balancedshop.legacy.LegacyNetwork.PayloadTypeRegistry;')
+                    content = content.replace('import net.fabricmc.fabric.api.client.networking.v1.*;', 'import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;\nimport dev.eymen.balancedshop.legacy.LegacyClientNetwork.*;')
+                    content = content.replace('import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;', 'import dev.eymen.balancedshop.legacy.LegacyClientNetwork.ClientPlayNetworking;')
+                    if(!nativeLoader)content=content.replace('(stack,context,flag,lines)->append(stack,lines)', '(stack,flag,lines)->append(stack,lines)')
+                    content=content.replaceAll(/\.withColor\((0x[0-9A-Fa-f]+)\)/, '.withStyle(style -> style.withColor($1))')
+                }
+                File dest = generated.get().file("${nativeLoader ? 'main' : side}/" + src.toPath().toString().substring(file("${root}/src/${side}/java").toPath().toString().length()+1)).asFile
+                dest.parentFile.mkdirs(); dest.setText(content,'UTF-8')
+            }
+        }
+        if(nativeLoader) {
+            [file("${root}/ports/shared/src/main/java"),file("${root}/ports/${loader}/src/main/java")].each { dir ->
+                fileTree(dir).matching { include '**/*.java' }.each { src ->
+                    String content = src.getText('UTF-8')
+                    if(older('1.21.11')) content=content.replace('Identifier','ResourceLocation').replace('.identifier()', '.location()')
+                    if(older('1.21.2')) content=content.replaceAll(/\.setId\(ResourceKey\.create\(Registries\.(?:ITEM|BLOCK),(?:ID|SPAWNER_ID)\)\)/,'')
+                    if(loader=='neoforge' && older('1.21.11')) {
+                        content=content.replace('FMLEnvironment.getDist()', 'FMLEnvironment.dist')
+                        content=content.replace('import net.neoforged.neoforge.client.network.ClientPacketDistributor;', 'import net.neoforged.neoforge.network.PacketDistributor;').replace('ClientPacketDistributor::sendToServer', 'PacketDistributor::sendToServer')
+                        if(src.name=='NeoClient.java') {
+                            content=content.replace('import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;','')
+                            content=content.replaceAll(/(?m)^.*RegisterClientPayloadHandlersEvent.*\r?\n/,'')
+                        }
+                        content=content.replace('registrar.playToClient(d.type(),d.codec());', 'registrar.playToClient(d.type(),d.codec(),(p,c)->dev.eymen.balancedshop.bridge.ClientBridge.ClientPlayNetworking.receive(p));')
+                    }
+                    if(loader=='forge' && older('1.21.9')) {
+                        content=content.replace('context.getModBusGroup()', 'context.getModEventBus()').replace('RegisterEvent.getBus(group)', 'group')
+                        content=content.replace('group.addListener(e->{if(e.getRegistryKey()', 'group.addListener((RegisterEvent e)->{if(e.getRegistryKey()')
+                        content=content.replace('net.minecraftforge.eventbus.api.bus.BusGroup', 'net.minecraftforge.eventbus.api.IEventBus').replace('install(BusGroup group)', 'install(IEventBus group)')
+                        content=content.replace('RegisterKeyMappingsEvent.BUS.addListener(e->', 'group.addListener((RegisterKeyMappingsEvent e)->')
+                        content=content.replace('BuildCreativeModeTabContentsEvent.BUS.addListener(e->', 'group.addListener((BuildCreativeModeTabContentsEvent e)->')
+                        content=content.replaceAll(/([A-Za-z0-9_.]+)\.BUS\.addListener\(e->/, 'net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(($1 e)->')
+                        content=content.replace('e.server()', 'e.getServer()')
+                        content=content.replace('e.setCancellationResult(result);return true;}return false;', 'e.setCancellationResult(result);e.setCanceled(true);}')
+                    }
+                    if(src.name=='ForgeClient.java'||src.name=='NeoClient.java') {
+                        def busName=loader=='forge'?'group':'modBus'
+                        content=content.replace('new ShopClient().onInitializeClient();', 'new ShopClient().onInitializeClient();\n        '+busName+'.addListener((RegisterColorHandlersEvent.Item e)->{int[] colors={0xD79E62,0xBDDCEC,0xFFD15E,0xB8A0FF};for(int i=0;i<4;i++){final int color=0xFF000000|colors[i];e.register((stack,tint)->color,dev.eymen.balancedshop.CoinItems.entry(i).item());}});')
+                    }
+                    if(older('1.20.5')) {
+                        content=content.replaceAll(/\.setId\(ResourceKey\.create\(Registries\.(?:ITEM|BLOCK),(?:ID|SPAWNER_ID)\)\)/,'')
+                        content=content.replace('BlockBehaviour.Properties.ofFullCopy(', 'BlockBehaviour.Properties.copy(')
+                        if(src.name=='ModContent.java')content=content.replace('Registry.register(BuiltInRegistries.BLOCK,ID,', 'dev.eymen.balancedshop.legacy.NativeRegistrations.registerBlock(ID,').replace('Registry.register(BuiltInRegistries.ITEM,ID,', 'dev.eymen.balancedshop.legacy.NativeRegistrations.registerItem(ID,').replace('Registry.register(BuiltInRegistries.ITEM,SPAWNER_ID,', 'dev.eymen.balancedshop.legacy.NativeRegistrations.registerItem(SPAWNER_ID,')
+                        content=content.replace('ResourceLocation.parse(', 'new ResourceLocation(')
+                        content=content.replace('net.minecraft.network.RegistryFriendlyByteBuf','net.minecraft.network.FriendlyByteBuf').replace('RegistryFriendlyByteBuf','FriendlyByteBuf')
+                        content=content.replace('net.minecraft.network.codec.StreamCodec','dev.eymen.balancedshop.legacy.LegacyCodec').replace('StreamCodec','LegacyCodec')
+                        content=content.replace('net.minecraft.network.protocol.common.custom.CustomPacketPayload','dev.eymen.balancedshop.legacy.LegacyPayload').replace('CustomPacketPayload','LegacyPayload')
+                        content=content.replace('Item.TooltipContext', 'Object')
+                        content=content.replace('Object.of(Minecraft.getInstance().level)', 'Minecraft.getInstance().level')
+                        content=content.replace('public ForgeEntrypoint(FMLJavaModLoadingContext context){', 'public ForgeEntrypoint(){\n        var context=FMLJavaModLoadingContext.get();')
+                        if(src.name=='ForgeEntrypoint.java')content=content.replace('group.addListener((RegisterEvent e)->{', 'group.addListener((RegisterEvent e)->{dev.eymen.balancedshop.legacy.NativeRegistrations.EVENT.set(e);')
+                        if(src.name=='ForgeEntrypoint.java') content=content.readLines().collect { line -> line.contains('TickEvent.ServerTickEvent') ? '        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener((TickEvent.ServerTickEvent e)->{if(e.phase==TickEvent.Phase.END)ServerBridge.ServerTickEvents.END_SERVER_TICK.listeners.forEach(l->l.accept(e.getServer()));});' : line }.join('\n')
+                        if(src.name=='ForgeClient.java') {
+                            content=content.readLines().collect { line -> line.contains('TickEvent.ClientTickEvent') ? '        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e)->{if(e.phase==TickEvent.Phase.END)ClientBridge.ClientTickEvents.END_CLIENT_TICK.listeners.forEach(l->l.accept(Minecraft.getInstance()));});' : line }.join('\n')
+                            content=content.replace('p->ForgeNetwork.CHANNEL.send(new ForgeNetwork.ToServer(p),Minecraft.getInstance().getConnection().getConnection())', 'p->ForgeNetwork.CHANNEL.sendToServer(new ForgeNetwork.ToServer(p))')
+                        }
+                    }
+                    File dest=generated.get().file('main/'+dir.toPath().relativize(src.toPath()).toString()).asFile
+                    dest.parentFile.mkdirs();dest.setText(content,'UTF-8')
+                }
+            }
+        }
+        if(older('1.20.5')) {
+            copy { from '../legacy/java'; into generated.get().dir('main') }
+            if(nativeLoader) copy { from '../legacy/forge'; into generated.get().dir('main') }
+            else {
+                copy { from '../legacy/fabric'; into generated.get().dir('main') }
+                copy { from '../legacy/fabric-client'; into generated.get().dir('client') }
+            }
+        }
+        fileTree('../verification').matching {include '**/*.java'}.each { src ->
+            String content=src.getText('UTF-8')
+            if(src.name=='ServerVerification.java') {
+                String hook=nativeLoader ? (loader=='neoforge' ? 'net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.BlockEvent.BreakEvent e)->{if(e.getPos().equals(protectedPos))e.setCanceled(true);});' : 'net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.level.BlockEvent.BreakEvent e)->{if(e.getPos().equals(protectedPos))e.setCanceled(true);});') : 'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((world,player,pos,state,entity)->!pos.equals(protectedPos));'
+                content=content.replace('/* protection_hook */',hook)
+                if(older('1.20.5'))content=content.replace(',net.minecraft.server.network.CommonListenerCookie.createInitial(miner.getGameProfile(),false)','')
+            }
+            if(!nativeLoader) content=content.replace('import dev.eymen.balancedshop.bridge.ServerBridge;', 'import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;').replace('ServerBridge.ServerLifecycleEvents.', 'ServerLifecycleEvents.')
+            if(!nativeLoader) content=content.replace('import dev.eymen.balancedshop.bridge.ClientBridge;', 'import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;').replace('ClientBridge.ClientTickEvents.', 'ClientTickEvents.')
+            if(older('1.20.5')) content=content.replace(',net.minecraft.server.level.ClientInformation.createDefault()','').replace('item.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,Component.literal(name))', 'item.setHoverName(Component.literal(name))').replace('ResourceLocation.fromNamespaceAndPath(', 'new ResourceLocation(').replace('ResourceLocation.parse(', 'new ResourceLocation(').replace('client.createWorldOpenFlows().openWorld("verification",()->{})','client.createWorldOpenFlows().loadLevel(client.screen,"verification")')
+            if(nativeLoader && older('1.20.5'))content=content.replace('Registry.register(BuiltInRegistries.ITEM,id,', 'dev.eymen.balancedshop.legacy.NativeRegistrations.registerItem(id,')
+            def relative=file('../verification').toPath().relativize(src.toPath()).toString()
+            def side=src.name=='ClientVerification.java' && !nativeLoader ? 'client' : 'main'
+            def dest=generated.get().file(side+'/'+relative).asFile;dest.parentFile.mkdirs();dest.setText(content,'UTF-8')
+        }
+        if(project.name=='balancedshop-forge-legacy' || (project.name.contains('forge') && !project.name.contains('neoforge') && mc=='1.20.1')) {
+            copy { from '../forge1201/java'; into generated.get().dir('main') }
+            apply from: '../forge1201/integrate.gradle'
+            integrateForge1201(generated.get().dir('main').asFile)
+        }
+        copy { from "${root}/src/main/resources"; into generated.get().dir('resources') }
+        if(!nativeLoader && mc=='1.20.1') {
+            copy { from '../forge1201/java'; into generated.get().dir('main') }
+            copy { from generated.get().dir('client'); into generated.get().dir('main') }
+            apply from: '../forge1201/integrate.gradle'
+            integrateForge1201(generated.get().dir('main').asFile,true)
+            apply from: '../fabric1201/integrate.gradle'
+            integrateFabric1201(generated.get().asFile)
+            copy { from '../forge1201/resources'; into generated.get().dir('resources') }
+            copy { from '../fabric1201/resources'; into generated.get().dir('resources') }
+        }
+        if(mc=='1.20.1' && nativeLoader && !project.name.contains('neoforge')) {
+            copy { from '../forge1201/resources'; into generated.get().dir('resources') }
+        }
+        if(older('1.21.2')) {
+            if(older('1.21')) {
+                ['data/balancedshop/loot_table/blocks/uncrafting_table.json':'data/balancedshop/loot_tables/blocks/uncrafting_table.json',
+                 'data/minecraft/tags/block/mineable/axe.json':'data/minecraft/tags/blocks/mineable/axe.json'].each { oldPath,newPath ->
+                    def oldFile=generated.get().file('resources/'+oldPath).asFile
+                    def newFile=generated.get().file('resources/'+newPath).asFile
+                    newFile.parentFile.mkdirs();newFile.setText(oldFile.getText('UTF-8'),'UTF-8');oldFile.delete()
+                }
+            }
+        }
+        if(older('1.21.4')) {
+            generated.get().file('resources/assets/balancedshop/models/item/uncrafting_table.json').asFile.setText('{"parent":"balancedshop:block/uncrafting_table"}','UTF-8')
+            ['copper_coin','silver_coin','gold_coin','platinum_coin'].each { name ->
+                def model=generated.get().file("resources/assets/balancedshop/models/item/${name}.json").asFile
+                model.parentFile.mkdirs();model.setText('{"parent":"minecraft:item/generated","textures":{"layer0":"balancedshop:item/coin"}}','UTF-8')
+            }
+        }
+        if(older('1.20.5')) {
+            def mixin=generated.get().file('resources/balancedshop.mixins.json').asFile
+            mixin.setText(mixin.getText('UTF-8').replace('JAVA_21','JAVA_17'),'UTF-8')
+        }
+        def metadata = new groovy.json.JsonSlurper().parse(generated.get().file('resources/fabric.mod.json').asFile)
+        metadata.version = project.version.toString()
+        if(!nativeLoader && mc=='1.20.1')metadata.description='Türkçe dinamik pazar, kalıcı ekonomi, büyü kitapları, ganimet depolu üreteçler ve çizgili alan yerleştirme.'
+        metadata.depends.minecraft = mc
+        metadata.depends.fabricloader = ">=${target.fabricLoader}"
+        metadata.depends.java = ">=${target.java}"
+        metadata.depends['fabric-api'] = ">=${target.fabricApi.tokenize('+')[0]}"
+        generated.get().file('resources/fabric.mod.json').asFile.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(metadata)),'UTF-8')
+        if(nativeLoader) {
+            generated.get().file('resources/fabric.mod.json').asFile.delete()
+            generated.get().file('resources/balancedshop.accesswidener').asFile.delete()
+            copy { from "${root}/ports/shared/src/main/resources", "${root}/ports/${loader}/src/main/resources"; into generated.get().dir('resources') }
+            def path = loader=='forge' ? 'META-INF/mods.toml' : 'META-INF/neoforge.mods.toml'
+            def toml=generated.get().file('resources/'+path).asFile
+            String text=toml.getText('UTF-8').replace('${version}',project.version.toString()).replace('[1.21.11]',"[${mc}]")
+            text=text.replace(loader=='forge' ? '[61.2.0,)' : '[21.11.45,)', "[${target[loader]},)")
+            if(loader=='forge')text=text.replace('[61,)', "[${target.forge.tokenize('.')[0]},)")
+            if(target.neoforgeLegacy && project.name.contains('neoforge'))text=text.replace('Forge Balanced Shop','NeoForge Balanced Shop').replace("[${target.forge},)",'[47.1.106,)')
+            toml.setText(text,'UTF-8')
+            if(loader=='forge') {
+                generated.get().file('resources/pack.mcmeta').asFile.setText(mc=='1.20.1' ? '{"pack":{"description":"Balanced Shop","pack_format":15}}' : '{"pack":{"description":"Balanced Shop","pack_format":34,"supported_formats":[34,48]}}','UTF-8')
+            }
+            if(older('1.20.5')) ['balancedshop.mixins.json','balancedshop.ports.mixins.json'].each { pathName ->
+                def mixin=generated.get().file('resources/'+pathName).asFile
+                def json=new groovy.json.JsonSlurper().parse(mixin);json.compatibilityLevel='JAVA_17';json.refmap='balancedshop.refmap.json'
+                mixin.setText(groovy.json.JsonOutput.toJson(json),'UTF-8')
+            }
+            if(mc=='1.20.1' && !project.name.contains('neoforge')) {
+                def retired=generated.get().file('resources/balancedshop.mixins.json').asFile
+                def settings=new groovy.json.JsonSlurper().parse(retired)
+                settings.mixins.remove('CreateVillagerMixin')
+                retired.setText(groovy.json.JsonOutput.toJson(settings),'UTF-8')
+            }
+        }
+    }
+}
+sourceSets.main.java.setSrcDirs([generated.map { it.dir('main') }])
+if(!nativeLoader) sourceSets.client.java.setSrcDirs([generated.map { it.dir('client') }])
+sourceSets.main.resources.setSrcDirs([generated.map { it.dir('resources') }])
+def generationTasks=['compileJava','processResources','sourcesJar']
+if(!nativeLoader) generationTasks.add('compileClientJava')
+generationTasks.each { taskName -> tasks.named(taskName) { dependsOn 'generateVersionSources' } }
+tasks.named('jar'){exclude 'dev/eymen/balancedshop/verification/**'}

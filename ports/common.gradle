@@ -1,0 +1,44 @@
+version = '1.6.0'
+group = 'dev.eymen.balancedshop'
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.withSourcesJar()
+def sourceRoot = file('../..')
+def generated = layout.buildDirectory.dir('generated/common-java')
+tasks.register('generateCommonSources') {
+    inputs.files(fileTree("${sourceRoot}/src/main/java"), fileTree("${sourceRoot}/src/client/java"))
+    outputs.dir(generated)
+    doLast {
+        copy {
+            from "${sourceRoot}/src/main/java", "${sourceRoot}/src/client/java"
+            into generated
+            exclude 'dev/eymen/balancedshop/ModContent.java'
+            filter { String line ->
+                if (line.startsWith('import net.fabricmc.')) {
+                    if (line.contains('networking.v1.*')) return line.contains('.client.') ? 'import dev.eymen.balancedshop.bridge.ClientBridge.*;' : 'import dev.eymen.balancedshop.bridge.ServerBridge.*;'
+                    def name = line.substring(line.lastIndexOf('.')+1).replace(';','')
+                    def client = line.contains('.client.') || name == 'ClientModInitializer'
+                    if (name == 'FabricLoader') return 'import dev.eymen.balancedshop.bridge.ServerBridge.FabricLoader;'
+                    return 'import dev.eymen.balancedshop.bridge.' + (client ? 'ClientBridge.' : 'ServerBridge.') + name + ';'
+                }
+                return line.replace('player.level().getServer().getPlayerList().save(player)', 'dev.eymen.balancedshop.bridge.PlayerPersistence.save(player)')
+            }
+        }
+    }
+}
+sourceSets.main.java.srcDirs(generated, '../shared/src/main/java')
+sourceSets.main.java.srcDir '../verification/src/main/java'
+sourceSets.main.resources {
+    srcDir '../shared/src/main/resources'
+    srcDir '../verification/src/main/resources'
+    srcDir "${sourceRoot}/src/main/resources"
+    exclude 'fabric.mod.json', 'balancedshop.accesswidener'
+}
+tasks.named('compileJava') { dependsOn 'generateCommonSources' }
+tasks.named('sourcesJar') { dependsOn 'generateCommonSources' }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 21 }
+tasks.named('processResources') {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/*mods.toml') { expand version: project.version }
+}
+tasks.named('jar') { from("${sourceRoot}/LICENSE") }
+tasks.named('jar') { exclude 'dev/eymen/balancedshop/verification/**', 'assets/create/**' }

@@ -1,0 +1,32 @@
+plugins { id 'java'; id 'net.minecraftforge.gradle' version '7.0.3' }
+def matrix=new groovy.json.JsonSlurper().parse(file('../matrix.json'))
+ext.target=matrix.find { it.minecraft==providers.gradleProperty('mc').get() }
+if(target==null || target.forge==null)throw new GradleException('Unsupported Forge/Minecraft release')
+version=target.forgeModVersion ?: '2.0.0'
+group='dev.eymen.balancedshop'
+layout.buildDirectory=file("build/${target.minecraft}")
+base { archivesName="forge-balanced-shop-${target.minecraft}" }
+java { toolchain.languageVersion=JavaLanguageVersion.of(21); withSourcesJar() }
+apply from: '../sources.gradle'
+// Forge 52 scans each development directory separately; keep annotations and metadata in one root.
+sourceSets.main.output.resourcesDir=layout.buildDirectory.dir('classes/java/main').get().asFile
+tasks.named('processResources'){destinationDir=sourceSets.main.output.resourcesDir;mustRunAfter 'compileJava'}
+minecraft {
+    mappings channel:'official',version:target.minecraft
+    runs {
+        register('client'){with('main'){
+            workingDir=layout.projectDirectory.dir("run/${target.minecraft}/client")
+            args '--gameDir','.', '--launchTarget','forge_userdev_client','--version','MOD_DEV','--assetIndex','{asset_index}','--assetsDir','{assets_root}', '--mixin.config=balancedshop.mixins.json','--mixin.config=balancedshop.ports.mixins.json'
+            if(project.hasProperty('verify'))systemProperty 'balancedshop.verify','true'
+        }}
+        register('server'){with('main'){
+            workingDir=layout.projectDirectory.dir("run/${target.minecraft}/server")
+            args '--gameDir','.', '--launchTarget','forge_userdev_server','--nogui','--mixin.config=balancedshop.mixins.json','--mixin.config=balancedshop.ports.mixins.json'
+            if(project.hasProperty('verify'))systemProperty 'balancedshop.verify','true'
+        }}
+    }
+}
+repositories { minecraft.mavenizer(it); maven fg.forgeMaven; maven fg.minecraftLibsMaven; mavenCentral() }
+dependencies { implementation minecraft.dependency("net.minecraftforge:forge:${target.minecraft}-${target.forge}") }
+tasks.withType(JavaCompile).configureEach { options.encoding='UTF-8'; options.release=target.java as int }
+jar { duplicatesStrategy=DuplicatesStrategy.EXCLUDE; from('../../LICENSE'); manifest {attributes 'MixinConfigs':'balancedshop.mixins.json,balancedshop.ports.mixins.json'} }

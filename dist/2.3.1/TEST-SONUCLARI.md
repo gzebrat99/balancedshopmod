@@ -1,0 +1,19 @@
+# Forge 1.20.1 / Balanced Shop 2.3.1 doğrulaması
+
+Tarih: 10 Ekim 2026. Gerçek Minecraft 1.20.1, Forge **47.3.10**, Java **17.0.20.1** ile çalıştırıldı. Başka Minecraft/yükleyici hedefi bu yayın için derlenmedi.
+
+- **388 sunucu kontrolü.** Korunan ekonomi, kitap, spawner, coin ve yükseltme kontrolleri 179; piyasa ve dünya ekonomisi 96; yeni alan yerleştirme 113 kontrol. Kaldırılan kazma sisteminin 10 eski kontrolü artık çalıştırılmaz. Yeni kategori kuralları, önceki işlem fiyatı, 9–30 ürünlük paket sınırları ve Create ticaret sınıflarının kaldırılması doğrulanır.
+- **77 istemci kontrolü.** Mevcut yedi GUI ve yeni boyut paneli gerçek yerel istemci/sunucu ile açılır; ayrıca B kısayolu, EditBox araması, 64'lü alış, Max satış, istemci envanter senkronizasyonu, kesin toplamlar, stok değişimi, eski teklifin reddi, 320×240 yerleşimi, arama odağı ve kitap ekranına container kapatarak geçiş doğrulanır. Soldaki altı kategori, dört miktar seçeneği, 30 slotluk geniş ekran, renkli fiyat okları ve stok ipuçları kontrol edilir; özel Create ekranının bulunmadığı doğrulanır.
+- Yerleştirme: altı yüzün her birinde 3–10 boyutların alan/tekillik/merkez kuralları, geçersiz boyutlar, kazma sınıflarının bulunmaması, gerçek 100 blok yerleştirme, iki yığından tam malzeme tüketimi, eksik malzemede durma, mevcut blokları koruma ve farklı NBT yığınlarını tüketmeme kontrol edilir. Gerçek Forge EntityPlaceEvent iptali hem bloğu hem malzemeyi geri alır; RightClickBlock reddi, erişim mesafesi, spectator, creative ve blok olmayan eşya kontrolü yapılır.
+- İstemcide P kısayolu, sekiz boyut seçeneği, küçük ekran yerleşimi, değiştirici tuş olmadan 100 hücrelik çizgi önizlemesi, önizlemenin hiçbir malzeme tüketmemesi, kapalı modda normal sağ tık ve mod kapatılınca çizgilerin temizlenmesi ve sağ tık paketinin gerçek sunucuda 100 blok üretip envanterden tam 100 blok tüketerek istemciye eşleşmesi kontrol edilir. Yalnızca test oyuncusu, test düzlemine düşmemesi için survival modunda uçabilir tutulur; normal yerleştirme kodu değiştirilmez.
+- Dünya `data/balancedshop_economy.dat` dosyasından gerçek disk okuması yapıldı. Sunucu yeniden başlatıldığında önceki **24680 kuruş** test işareti doğru okundu.
+- JSON geçişi, yedekleme, yeniden başlatmada tekrar para yüklememe, bozuk kaydı reddetme; eksi/taşan/kişinin kendisine yaptığı transferler test edildi.
+- `/bal`, `/pay`, `/economy add/remove/set` gerçek Brigadier komut ağacında çalıştırıldı; izin seviyesi ve kuruş hassasiyeti doğrulandı.
+- Stok azalınca fiyat artışı, satışla düşüş, min/max sınırları, stok tükenmesi, dolu envanter, parasız alım, tohum satışı, hasarlı aletler, tekli/toplu fiyat eşitliği ve bütün tanımlı sıkıştırılmış blokların malzeme oranları doğrulandı.
+- Sunucunun sakladığı teklif ile işlem karşılaştırılır; değişen Max miktarı, yabancı container/oturum ve yinelenen sıra numarası kabul edilmez.
+
+Toplam **465 farklı kontrol**. Entegre sunucuda tekrarlanan sunucu kontrolleri bu toplama ikinci kez eklenmez. Başarı durumu için paketteki gerçek `verification/forge-1.20.1-server.txt`, `forge-1.20.1-client.txt`, `market.txt` raporları esas alınır; paketleme başarısız/eksik raporu reddeder.
+
+Gerçek istemci ekran görüntüleri: yayın paketindeki `market-preview.png`, `market-rpg-large.png` `area-placement.png` ve `area-preview.png`. Üretim JAR'ı paketlenirken mod sürümü, Forge alt sınırı, Java 17 sınıfları, SRG/Mixin eşlemeleri, yeni modüller ve test sınıflarının dışarıda kaldığı ayrıca doğrulanır. Kaldırılmış kazma/packet sınıfları, Create arayüzü sınıfları ve köylü mixin'i pakette bulunamaz.
+
+Kapsam: Create uyumluluğunun mevcut otomatik testleri `create:shaft` ve `create:andesite_alloy` kayıtlarını test eşyaları olarak ekler. Tam Create modu/mod paketi kurulmuş bir birlikte çalışma testi değildir. Yeni modların özel NBT/enerji değerleri bu test kapsamının dışındadır. Kaynak kodunda GUI açıklamaları ve mimari ayrıntılar `README.md` dosyasındadır.

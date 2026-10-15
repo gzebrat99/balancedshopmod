@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.eymen.balancedshop.EconomyTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-10-04T17:22:25.675Z" hostname="DESKTOP-CGGQ09P" time="0.614">
+  <properties/>
+  <testcase name="failedSaveRollsBackMemory()" classname="dev.eymen.balancedshop.EconomyTest" time="0.148"/>
+  <testcase name="compressedPricesCannotBeClippedIntoBuySellArbitrage()" classname="dev.eymen.balancedshop.EconomyTest" time="0.01"/>
+  <testcase name="corruptWalletsArePreserved()" classname="dev.eymen.balancedshop.EconomyTest" time="0.013"/>
+  <testcase name="farmMigrationRepairsBadBlocksButPreservesModOverridesAndWallets()" classname="dev.eymen.balancedshop.EconomyTest" time="0.076"/>
+  <testcase name="bookPricesCoverLevelsTreasureCursesAndModFallback()" classname="dev.eymen.balancedshop.EconomyTest" time="0.018"/>
+  <testcase name="transientWindowsRenameLockDoesNotLoseWalletChange()" classname="dev.eymen.balancedshop.EconomyTest" time="0.167"/>
+  <testcase name="upgradeOddsScaleWithValueAndFeesPreventProfitableRetryLoops()" classname="dev.eymen.balancedshop.EconomyTest" time="0.027"/>
+  <testcase name="walletsPersistAndDoNotResetOnReconnect()" classname="dev.eymen.balancedshop.EconomyTest" time="0.036"/>
+  <testcase name="bookPriceOverridesAreValidatedAndExistingConfigsKeepNewDefaults()" classname="dev.eymen.balancedshop.EconomyTest" time="0.027"/>
+  <testcase name="moneyRejectsInvalidAmountsAndOverflow()" classname="dev.eymen.balancedshop.EconomyTest" time="0.012"/>
+  <testcase name="infiniteFarmSpawnersCostMoreThanStarterFarmsAndFitMoneyLimits()" classname="dev.eymen.balancedshop.EconomyTest" time="0.005"/>
+  <testcase name="oldConfigIsBackedUpAndMigratedOnceWithoutLosingOverrides()" classname="dev.eymen.balancedshop.EconomyTest" time="0.037"/>
+  <testcase name="rarityAndModRulesAreMeaningful()" classname="dev.eymen.balancedshop.EconomyTest" time="0.006"/>
+  <testcase name="veinLimitsAndSpawnerOverridesAreValidated()" classname="dev.eymen.balancedshop.EconomyTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

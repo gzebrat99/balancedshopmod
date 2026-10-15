@@ -1,0 +1,1 @@
+PASS: all 7 GUI flows, real registry codecs, native trader interaction, replay guard, persistence invoker and tooltip. Total assertions=55

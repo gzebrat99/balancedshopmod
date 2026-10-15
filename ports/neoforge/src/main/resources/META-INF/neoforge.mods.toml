@@ -1,0 +1,25 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+[[mods]]
+modId="balancedshop"
+version="${version}"
+displayName="NeoForge Balanced Shop"
+authors="Eymen"
+description='''Shop, selling, all enchanted books, uncrafting, lucky upgrades, physical coins and Create traders.'''
+[[dependencies.balancedshop]]
+modId="neoforge"
+type="required"
+versionRange="[21.11.45,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.balancedshop]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.11]"
+ordering="NONE"
+side="BOTH"
+[[mixins]]
+config="balancedshop.mixins.json"
+[[mixins]]
+config="balancedshop.ports.mixins.json"

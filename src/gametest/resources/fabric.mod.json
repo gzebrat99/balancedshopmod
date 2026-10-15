@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "balancedshop-gametest",
+  "version": "1.0.0",
+  "name": "Balanced Shop integration tests",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.eymen.balancedshop.test.TestContent"],
+    "fabric-client-gametest": ["dev.eymen.balancedshop.client.ShopGuiGameTest"]
+  },
+  "depends": {"balancedshop": "*", "fabric-api": "*"}
+}

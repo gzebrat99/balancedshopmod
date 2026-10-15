@@ -1,0 +1,30 @@
+def matrix=new groovy.json.JsonSlurper().parse(file('../matrix.json'))
+ext.target=matrix.find { it.minecraft==providers.gradleProperty('mc').get() }
+if(target==null || target.minecraft!='1.20.1')throw new GradleException('Legacy native build targets 1.20.1 only')
+def kind=project.name.contains('neoforge')?'neoforge':'forge'
+version=target[kind+'ModVersion'] ?: '1.7.0'
+group='dev.eymen.balancedshop'
+layout.buildDirectory=file("build/${target.minecraft}")
+base { archivesName="${kind}-balanced-shop-${target.minecraft}" }
+java { toolchain.languageVersion=JavaLanguageVersion.of(17); withSourcesJar() }
+apply from: '../sources.gradle'
+legacyForge {
+    enable {
+        if(kind=='forge') forgeVersion="${target.minecraft}-${target.forge}"
+        else neoForgeVersion=target.neoforge
+        disableRecompilation=true
+    }
+    runs {
+        client { client(); gameDirectory=project.file("run/${target.minecraft}/client");if(project.hasProperty('verify'))systemProperty 'balancedshop.verify','true' }
+        server { server(); gameDirectory=project.file("run/${target.minecraft}/server"); programArgument '--nogui';if(project.hasProperty('verify'))systemProperty 'balancedshop.verify','true' }
+    }
+    mods { balancedshop { sourceSet sourceSets.main } }
+}
+dependencies { annotationProcessor 'org.spongepowered:mixin:0.8.5:processor' }
+mixin {
+    add sourceSets.main,'balancedshop.refmap.json'
+    config 'balancedshop.mixins.json'
+    config 'balancedshop.ports.mixins.json'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding='UTF-8'; options.release=17 }
+jar { from('../../LICENSE');manifest {attributes 'MixinConfigs':'balancedshop.mixins.json,balancedshop.ports.mixins.json'} }

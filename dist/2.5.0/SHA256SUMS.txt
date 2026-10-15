@@ -1,0 +1,1 @@
+684eadbb3d736b4c98028212f057e476abe767f4a48fd45527d8b5bbbf9dca60  1.20.1/forge-balanced-shop-1.20.1-2.5.0.jar

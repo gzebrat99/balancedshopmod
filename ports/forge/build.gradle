@@ -1,0 +1,22 @@
+plugins { id 'java'; id 'net.minecraftforge.gradle' version '7.0.3' }
+apply from: '../common.gradle'
+base { archivesName = 'forge-balanced-shop-1.21.11' }
+def nativeVerification = providers.gradleProperty('verify').isPresent()
+minecraft {
+    mappings channel: 'official', version: '1.21.11'
+    runs {
+        // FG 7.0.3 source-set options replace inherited argument conventions: keep the full launch arguments here.
+        register('client') { with('main') {
+            workingDir = layout.projectDirectory.dir('run/client')
+            args '--gameDir', '.', '--launchTarget', 'forge_userdev_client', '--version', 'MOD_DEV', '--assetIndex', '{asset_index}', '--assetsDir', '{assets_root}', '--mixin.config=balancedshop.mixins.json', '--mixin.config=balancedshop.ports.mixins.json'
+            if(nativeVerification) systemProperty 'balancedshop.verify','true'
+        } }
+        register('server') { with('main') {
+            workingDir = layout.projectDirectory.dir('run/server')
+            args '--gameDir', '.', '--launchTarget', 'forge_userdev_server', '--nogui', '--mixin.config=balancedshop.mixins.json', '--mixin.config=balancedshop.ports.mixins.json'
+        } }
+    }
+}
+repositories { minecraft.mavenizer(it); maven fg.forgeMaven; maven fg.minecraftLibsMaven; mavenCentral() }
+dependencies { implementation minecraft.dependency('net.minecraftforge:forge:1.21.11-61.2.0'); annotationProcessor 'net.minecraftforge:eventbus-validator:7.0.5' }
+jar { manifest { attributes 'MixinConfigs': 'balancedshop.mixins.json,balancedshop.ports.mixins.json' } }

@@ -1,0 +1,1 @@
+ebea11af68283c7377913c20942a5707c9ad3b9ea34cc4aef50baec2e1cfee86  1.20.1/fabric-balanced-shop-1.20.1-2.5.1.jar

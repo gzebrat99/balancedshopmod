@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.eymen.balancedshop.EconomyTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-04T10:53:11.617Z" hostname="DESKTOP-CGGQ09P" time="0.949">
+  <properties/>
+  <testcase name="failedSaveRollsBackMemory()" classname="dev.eymen.balancedshop.EconomyTest" time="0.227"/>
+  <testcase name="corruptWalletsArePreserved()" classname="dev.eymen.balancedshop.EconomyTest" time="0.017"/>
+  <testcase name="bookPricesCoverLevelsTreasureCursesAndModFallback()" classname="dev.eymen.balancedshop.EconomyTest" time="0.013"/>
+  <testcase name="transientWindowsRenameLockDoesNotLoseWalletChange()" classname="dev.eymen.balancedshop.EconomyTest" time="0.253"/>
+  <testcase name="upgradeOddsScaleWithValueAndFeesPreventProfitableRetryLoops()" classname="dev.eymen.balancedshop.EconomyTest" time="0.126"/>
+  <testcase name="walletsPersistAndDoNotResetOnReconnect()" classname="dev.eymen.balancedshop.EconomyTest" time="0.082"/>
+  <testcase name="bookPriceOverridesAreValidatedAndExistingConfigsKeepNewDefaults()" classname="dev.eymen.balancedshop.EconomyTest" time="0.083"/>
+  <testcase name="moneyRejectsInvalidAmountsAndOverflow()" classname="dev.eymen.balancedshop.EconomyTest" time="0.016"/>
+  <testcase name="oldConfigIsBackedUpAndMigratedOnceWithoutLosingOverrides()" classname="dev.eymen.balancedshop.EconomyTest" time="0.07"/>
+  <testcase name="rarityAndModRulesAreMeaningful()" classname="dev.eymen.balancedshop.EconomyTest" time="0.019"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,6 @@
+14c86fb82e32e382b198b6fac7d0bc32657d10722d5e56af3c18f1996f7c8ac5  1.20.1/fabric-balanced-shop-1.20.1-2.0.0.jar
+0ac13d65f582a6280f2c298f0b2df0a1166a0f458031c6e341772b7671daf440  1.20.1/forge-balanced-shop-1.20.1-2.0.0.jar
+653adfa028f08bfc5024a7e1cc94bf00cdbbe6acde4891bfc0ef83dd9094c129  1.20.1/neoforge-balanced-shop-1.20.1-2.0.0.jar
+407ddc431eac1146b2716a19407fa0098a909a047573cc54cfb6a426173b98d4  1.21.1/fabric-balanced-shop-1.21.1-2.0.0.jar
+19ef3edd358ca9920ef081cd825d328ea14a7b651daa52c58f0ae904415e2ee3  1.21.1/forge-balanced-shop-1.21.1-2.0.0.jar
+7e834f2e8e7290252c0d679af6584f3226fb3b72b2ef9cf3ae901fcd4fde5494  1.21.1/neoforge-balanced-shop-1.21.1-2.0.0.jar

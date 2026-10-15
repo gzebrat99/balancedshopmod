@@ -1,0 +1,86 @@
+// Only the active Forge 1.20.1 target receives these adapters; archived loader sources stay intact.
+ext.integrateForge1201 = { File main, boolean fabric = false ->
+    def turkishLiterals={String t -> t.replaceAll(/"(?:[^"\\]|\\.)*"/) { literal -> literal.replace(' coin',' akçe') } }
+    def edit={String name,Closure transform ->
+        def f=new File(main,'dev/eymen/balancedshop/'+name+'.java')
+        if(fabric && !f.exists())return
+        f.setText(transform(f.getText('UTF-8')),'UTF-8')
+    }
+    edit('WalletStore') { t -> t.replace('private final Path file;', '''private dev.eymen.balancedshop.data.EconomyData worldData;
+    public dev.eymen.balancedshop.data.EconomyData data(){return worldData;}
+    private WalletStore(dev.eymen.balancedshop.data.EconomyData data){this.file=null;this.startingBalance=0;this.worldData=data;}
+    public static WalletStore world(net.minecraft.server.MinecraftServer server,Path legacy,long ignored) throws IOException {
+        return new WalletStore(dev.eymen.balancedshop.data.EconomyData.get(server,legacy));
+    }
+    private final Path file;''')
+        .replace('public synchronized long balance(UUID player) throws IOException {','public synchronized long balance(UUID player) throws IOException {\n        if(worldData!=null)return worldData.balance(player);')
+        .replace('public synchronized void set(UUID player, long amount) throws IOException {','public synchronized void set(UUID player, long amount) throws IOException {\n        if(worldData!=null){worldData.setBalance(player,amount);return;}') }
+    edit('BalancedShop') { t -> t.replace('private static State state;', '''private static State state;
+    public static Catalogue catalogue(){return state==null?null:state.catalogue;}
+    public static WalletStore wallets(){return state==null?null:state.wallets;}''')
+        .replace('new WalletStore(directory.resolve("wallets.json"),config.startingBalance)','WalletStore.world(server,directory.resolve("wallets.json"),config.startingBalance)')
+        .replace('state=new State(config,catalogue,wallets,directory);','state=new State(config,catalogue,wallets,directory);\n                catalogue.attachMarket(new dev.eymen.balancedshop.data.DynamicMarket(catalogue,wallets.data()));')
+        .replace('state=new State(config,catalogue,state.wallets,state.directory);','state=new State(config,catalogue,state.wallets,state.directory);\n        catalogue.attachMarket(new dev.eymen.balancedshop.data.DynamicMarket(catalogue,state.wallets.data()));')
+        .replace('CreateTraderService.register();','').replace('CreateTraderService.configure(catalogue,config);','').replace('CreateTraderService.clear();','')
+        .replace('VeinMiningService.register();','').replace('VeinMiningService.configure(config);','').replace('VeinMiningService.clear();','')
+    }
+    edit('Catalogue') { t -> t.replace('public static final int PAGE_SIZE = 45;', '''public static final int PAGE_SIZE = 45;
+    private dev.eymen.balancedshop.data.DynamicMarket market;
+    public void attachMarket(dev.eymen.balancedshop.data.DynamicMarket market){this.market=market;}
+    public dev.eymen.balancedshop.data.DynamicMarket market(){return market;}
+    public ShopPackets.Entry baseEntry(String id){return entries.get(id);}''')
+        .replace('private static boolean hidden(', 'public static boolean hidden(')
+        .replace('FarmEconomy.matches(namespace,e.id(),new ItemStack(items.get(e.id())).isDamageableItem(),items.get(e.id()) instanceof BlockItem)', 'dev.eymen.balancedshop.data.MarketCategories.matches(namespace,e.id(),items.get(e.id()))')
+        .replace('return entries.get(id); }','var base=entries.get(id);return market==null?base:market.current(base); }')
+        .replace('return Collections.unmodifiableCollection(entries.values());','return entries.values().stream().map(e->entry(e.id())).toList();')
+        .replace('return entries.values().stream().filter','return entries.values().stream().map(e->entry(e.id())).filter') }
+    edit('Catalogue') { t -> t.replace('String query=text.strip().toLowerCase(Locale.ROOT);','String query=text.strip();')
+        .replace('query.isEmpty()||e.id().contains(query)||new ItemStack(items.get(e.id())).getHoverName().getString().toLowerCase(Locale.ROOT).contains(query)','dev.eymen.balancedshop.localization.TurkishText.itemMatches(e.id(),new ItemStack(items.get(e.id())),query)') }
+    edit('BookCatalogue') { t -> t.replace('String text=query.strip().toLowerCase(Locale.ROOT);','String text=query.strip();')
+        .replace('e.id.toLowerCase(Locale.ROOT).contains(text)||name(e.book).getString().toLowerCase(Locale.ROOT).contains(text)','dev.eymen.balancedshop.localization.TurkishText.bookMatches(e.id,e.level,e.book,text)')
+        .replace('return EnchantmentHelper.getEnchantments(book).entrySet().stream().findFirst().map(e->e.getKey().getFullname(e.getValue())).orElse(book.getHoverName());','return dev.eymen.balancedshop.localization.TurkishText.book(book);') }
+    edit('SpawnerCatalogue') { t -> t.replace('String q=text.strip().toLowerCase(Locale.ROOT);','String q=text.strip();')
+        .replace('q.isEmpty()||e.id.contains(q)||e.stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains(q)','dev.eymen.balancedshop.localization.TurkishText.spawnerMatches(e.id,e.stack,q)') }
+    edit('UpgradeEngine') { t -> t.replace('String query=search.strip().toLowerCase(Locale.ROOT);','String query=search.strip();')
+        .replace('query.isEmpty()||entry.id().contains(query)||result.getHoverName().getString().toLowerCase(Locale.ROOT).contains(query)','dev.eymen.balancedshop.localization.TurkishText.itemMatches(entry.id(),result,query)')
+        .replace('!query.isEmpty()&&!book.id().contains(query)&&!BookCatalogue.name(book.book()).getString().toLowerCase(Locale.ROOT).contains(query)','!dev.eymen.balancedshop.localization.TurkishText.bookMatches(book.id(),book.level(),book.book(),query)') }
+    edit('MobSpawnerItem') { t -> t.replace('type.getDescription()','dev.eymen.balancedshop.localization.TurkishText.component(type.getDescription())') }
+    edit('TradeEngine') { t -> t.replace('private static String execute(Catalogue catalogue,WalletStore wallets,Inventory inventory,UUID player,String id,int quantity,boolean sell) throws IOException {', '''private static String execute(Catalogue catalogue,WalletStore wallets,Inventory inventory,UUID player,String id,int quantity,boolean sell) throws IOException {
+        if(catalogue.market()!=null && !id.contains("@"))return catalogue.market().execute(wallets,inventory,player,id,quantity,sell).message();''') }
+    edit('forge/ForgeEntrypoint') { t -> t.replace('var group=context.getModEventBus();','var group=context.getModEventBus();\n        dev.eymen.balancedshop.network.MarketNetwork.install(group);\n        dev.eymen.balancedshop.placement.AreaPlacement.install();\n        dev.eymen.balancedshop.spawner.SpawnerLoot.install();') }
+    edit('forge/ForgeClient') { t -> t.replace('new ShopClient().onInitializeClient();','dev.eymen.balancedshop.keybind.MarketKeybind.install(group);\n        dev.eymen.balancedshop.placement.PlacementClient.install(group);\n        dev.eymen.balancedshop.screen.SpawnerStorageScreen.install();\n        new ShopClient().onInitializeClient();') }
+    edit('client/ShopClient') { t -> t.replace('client.setScreen(new MarketHubScreen());','dev.eymen.balancedshop.keybind.MarketKeybind.open();')
+        .replace('public static void openCoins(net.minecraft.client.gui.screens.Screen parent){','public static void openCoins(net.minecraft.client.gui.screens.Screen parent){\n        dev.eymen.balancedshop.keybind.MarketKeybind.closeMarket();')
+        .replace('client.setScreen(new ShopScreen(category));','dev.eymen.balancedshop.keybind.MarketKeybind.open(category);')
+        .replace('public static void openSpawners(){','public static void openSpawners(){dev.eymen.balancedshop.keybind.MarketKeybind.closeMarket();')
+        .replace('public static void openSell(){','public static void openSell(){dev.eymen.balancedshop.keybind.MarketKeybind.closeMarket();')
+        .replace('public static void openUpgrade(){','public static void openUpgrade(){dev.eymen.balancedshop.keybind.MarketKeybind.closeMarket();')
+        .replace('public static void openBooks(){','public static void openBooks(){dev.eymen.balancedshop.keybind.MarketKeybind.closeMarket();')
+        .replaceAll(/(?s)        KeyMapping vein=.*?        KeyMapping sell=/,'        KeyMapping sell=')
+        .replace('import dev.eymen.balancedshop.VeinPackets;','')
+        .readLines().findAll { !it.contains('TraderPackets.') }.join('\n') }
+    edit('client/MarketHubScreen') { t -> t.replace('"coins","create"','"coins","rare"').replace('Items.GRINDSTONE','Items.NETHER_STAR').replace('ShopClient.openShop("create")','ShopClient.openShop("@rare")').replace('Component.translatable("market.balancedshop."+names[i])','i==7?Component.literal("Özel / Nadir"):Component.translatable("market.balancedshop."+names[i])') }
+    ['CreateTraderService','TraderPackets','client/CreateTraderScreen','mixin/CreateVillagerMixin','VeinMiningService','VeinPackets'].each { name -> new File(main,'dev/eymen/balancedshop/'+name+'.java').delete() }
+    edit('client/SellScreen') { t -> t.replace('text("total",Money.format(total(quantity)))','Component.literal("Tahmini: "+Money.format(total(quantity))+" coin (stokla değişir)")') }
+    edit('command/EconomyCommands') { t -> turkishLiterals(t) }
+    // Localize the view only. Never rename an ItemStack or modify custom item NBT.
+    ['client/ShopScreen','client/SellScreen','client/CoinScreen','client/SpawnerScreen','client/UpgradeScreen','screen/MarketScreen'].each { name ->
+        edit(name) { t ->
+            ['stack(data.rows().get(i).id())','stack(selected)','stack(row.id())','entry.stack()','selected.stack()','t.result()','new ItemStack(coin.item())','item'].each { expr ->
+                t=t.replace(expr+'.getHoverName()','dev.eymen.balancedshop.localization.TurkishText.name('+expr+')')
+            }
+            turkishLiterals(t.replace('net.minecraft.world.item.enchantment.Enchantment.getFullname(holder,level)','dev.eymen.balancedshop.localization.TurkishText.component(net.minecraft.world.item.enchantment.Enchantment.getFullname(holder,level))')
+                .replace('holder.getFullname(level)','dev.eymen.balancedshop.localization.TurkishText.component(holder.getFullname(level))'))
+        }
+    }
+    edit('verification/ServerVerification') { t -> t.replace('ready=true;','checks+=MarketVerification.run(server);\n            Files.writeString(Path.of("verification/server.txt"),"PASS "+checks+" assertions\\nForge 1.20.1 / world economy + dynamic market\\n");ready=true;').replace('CreateTraderService.offers(catalogue,"")','catalogue.search("","create")') }
+    edit('verification/ServerVerification') { t -> t.replace('checks+=MarketVerification.run(server);','checks+=MarketVerification.run(server);checks+=LocalizationVerification.run(server);checks+=SpawnerLootVerification.run(server);') }
+    edit('verification/ServerVerification') { t -> t.replaceAll(/(?s)            for\(int i=0;i<5;i\+\+\)level.setBlockAndUpdate\(origin.offset.*?            level.setBlockAndUpdate\(origin,net.minecraft.world.level.block.Blocks.AIR.defaultBlockState\(\)\);/,'''            checks+=PlacementVerification.run(miner);
+            miner.setPos(100.5,80,102.5);
+            level.setBlockAndUpdate(origin,net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());''') }
+    edit('verification/ClientVerification') { t -> t.replace('if(screenTicks++==0){','''if(screenTicks++==0){
+                    if(phase==1){client.setScreen(null);net.minecraft.client.KeyMapping.click(com.mojang.blaze3d.platform.InputConstants.getKey(org.lwjgl.glfw.GLFW.GLFW_KEY_B,0));return;}
+                    dev.eymen.balancedshop.keybind.MarketKeybind.closeMarket();''')
+        .replace('phase<=8','phase<=7').replace('case 7->new CreateTraderScreen();','').replace('All 8 GUIs','All 7 GUIs')
+        .replace('Files.createDirectories(Path.of("verification"));Files.writeString(Path.of("verification/client.txt"),', 'if(!ClientMarketVerification.tick(client))return;checks+=ClientMarketVerification.checks();\n            Files.createDirectories(Path.of("verification"));Files.writeString(Path.of("verification/client.txt"),') }
+}

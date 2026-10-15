@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 3,
+  "startingBalance": 0,
+  "priceMultiplier": 4.0,
+  "sellRatio": 0.125,
+  "allowRestrictedItems": false,
+  "sellingEnabled": true,
+  "createVillagersEnabled": true,
+  "upgradeDestroyOnFailure": true,
+  "transactionCooldownTicks": 4,
+  "veinMiningEnabled": true,
+  "veinMiningMaxBlocks": 64,
+  "veinMiningRadius": 6,
+  "prices": {},
+  "namespaceMultipliers": {
+    "create": 1.25
+  },
+  "spawnerPrices": {},
+  "enchantmentPrices": {}
+}

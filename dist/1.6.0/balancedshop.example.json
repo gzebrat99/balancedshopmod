@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "startingBalance": 0,
+  "priceMultiplier": 4.0,
+  "sellRatio": 0.125,
+  "allowRestrictedItems": false,
+  "sellingEnabled": true,
+  "createVillagersEnabled": true,
+  "upgradeDestroyOnFailure": true,
+  "transactionCooldownTicks": 4,
+  "prices": {},
+  "namespaceMultipliers": {
+    "create": 1.25
+  },
+  "enchantmentPrices": {}
+}

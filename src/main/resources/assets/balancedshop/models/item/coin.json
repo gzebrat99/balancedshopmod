@@ -1,0 +1,6 @@
+{
+    "textures":  {
+                     "layer0":  "balancedshop:item/coin"
+                 },
+    "parent":  "minecraft:item/generated"
+}

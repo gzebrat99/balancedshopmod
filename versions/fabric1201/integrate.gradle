@@ -1,0 +1,128 @@
+// Fabric 1.20.1 uses the same economy/UI implementations, with native Fabric transport and callbacks.
+ext.integrateFabric1201={File generated ->
+    File main=new File(generated,'main')
+    def edit={String name,Closure transform ->def f=new File(main,'dev/eymen/balancedshop/'+name+'.java');f.setText(transform(f.getText('UTF-8')),'UTF-8')}
+    def region={String text,String first,String next,String replacement ->int a=text.indexOf(first),b=text.indexOf(next,a);if(a<0||b<0)throw new GradleException('Missing Fabric adaptation '+first);text.substring(0,a)+replacement+text.substring(b)}
+    edit('BalancedShop'){t->t.replace('ModContent.initialize();','ModContent.initialize();\n        dev.eymen.balancedshop.network.MarketNetwork.install();\n        dev.eymen.balancedshop.placement.AreaPlacement.install();\n        dev.eymen.balancedshop.spawner.SpawnerLoot.install();')}
+    edit('client/ShopClient'){t->t.replace('public void onInitializeClient() {','public void onInitializeClient() {\n        dev.eymen.balancedshop.platform.FabricClient.install();')}
+    edit('command/EconomyCommands'){t->t.replace('import net.minecraftforge.event.RegisterCommandsEvent;','import com.mojang.brigadier.CommandDispatcher;').replace('public static void register(RegisterCommandsEvent event){\n        var d=event.getDispatcher();','public static void register(CommandDispatcher<CommandSourceStack> d){')}
+    edit('localization/TurkishText'){t->t.replace('import net.minecraftforge.fml.ModList;','import net.fabricmc.loader.api.FabricLoader;').replace('ModList.get().getModContainerById(namespace).ifPresent(mod->{','FabricLoader.getInstance().getModContainer(namespace).ifPresent(mod->{').replace('Path path=mod.getModInfo().getOwningFile().getFile().findResource("assets",namespace,"lang","tr_tr.json");','Path path=mod.findPath("assets/"+namespace+"/lang/tr_tr.json").orElse(null);').replace('if(Files.isRegularFile(path))','if(path!=null&&Files.isRegularFile(path))')}
+    edit('menu/ShopMenu'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n')
+        t=region(t,'    private static final DeferredRegister','    public final UUID session;', '''    private static final MenuType<ShopMenu> MENU_TYPE=net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.MENU,new net.minecraft.resources.ResourceLocation("balancedshop","market"),new net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType<>(ShopMenu::new));
+    public static final java.util.function.Supplier<MenuType<ShopMenu>> TYPE=()->MENU_TYPE;
+''')
+        t.replace('public static void register(IEventBus bus){MENUS.register(bus);}','public static void register(){}')
+    }
+    edit('network/MarketNetwork'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n')
+        t=t.replaceAll(/    public static final SimpleChannel CHANNEL=.*?;/,'    public static final FabricTransport CHANNEL=new FabricTransport();')
+        t=t.replace('static Page decode(','public static Page decode(').replace('        void encode(','        public void encode(').replace('private static void handle(','public static void handle(')
+        t=region(t,'    public static void install(','    public static void open(','''    public static void install(){
+        ShopMenu.register();FabricTransport.install();
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->EconomyCommands.register(dispatcher));
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server->{
+            if(server.getTickCount()%20!=0)return;
+            var catalogue=BalancedShop.catalogue();if(catalogue==null||catalogue.market()==null)return;
+            long revision=catalogue.market().data().revision();
+            if(tooltipRevision!=revision){tooltipRevision=revision;PriceSync.configure(catalogue,server);}
+        });
+    }
+''')
+        t=t.replace('NetworkHooks.openScreen(player,new SimpleMenuProvider((id,inv,p)->new ShopMenu(id,inv,session),Component.literal("Balanced Shop")),buf->buf.writeUUID(session));','''player.openMenu(new net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory(){
+            public Component getDisplayName(){return Component.literal("Dengeli Pazar");}
+            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int id,net.minecraft.world.entity.player.Inventory inv,net.minecraft.world.entity.player.Player p){return new ShopMenu(id,inv,session);}
+            public void writeScreenOpeningData(ServerPlayer p,FriendlyByteBuf buf){buf.writeUUID(session);}
+        });''')
+        t.replace('PacketDistributor.PLAYER.with(()->player)','player')
+    }
+    edit('placement/AreaPlacement'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n')
+        t=t.replaceAll(/    public static final SimpleChannel CHANNEL=.*?;/,'    public static final dev.eymen.balancedshop.network.FabricTransport CHANNEL=new dev.eymen.balancedshop.network.FabricTransport();')
+        t=region(t,'    public static void install(){','    public static void handle(','''    public static void install(){
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler,server)->LAST_USE.remove(handler.player.getUUID()));
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server->LAST_USE.clear());
+    }
+''')
+        t=t.replace('Math.min(6,player.getAttributeValue(ForgeMod.BLOCK_REACH.get())+(player.isCreative()?0.5:0))','(player.isCreative()?5.0:4.5)')
+        t=t.replace('var permission=ForgeHooks.onRightClickBlock(player,InteractionHand.MAIN_HAND,target,targetHit);\n            if(permission.isCanceled()||permission.getUseItem()==Event.Result.DENY||permission.getUseBlock()==Event.Result.DENY)continue;','var permission=net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker().interact(player,level,InteractionHand.MAIN_HAND,targetHit);\n            if(permission!=net.minecraft.world.InteractionResult.PASS)continue;')
+        t.replace("// ItemStack.useOn invokes Forge's snapshot/EntityPlaceEvent pipeline, including rollback.","// Honor Fabric UseBlockCallback before using the native BlockItem placement path.").replace('// Calling BlockItem.place directly would bypass that protection and is intentionally avoided.','// A callback rejecting a target leaves both the block and materials unchanged.')
+    }
+    edit('spawner/SpawnerLoot'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n').replace('FakePlayerFactory.get(','net.fabricmc.fabric.api.entity.FakePlayer.get(')
+        t=t.replace('public static void install(){MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST,false,PlayerInteractEvent.RightClickBlock.class,SpawnerLoot::interact);}','public static void install(){} // Block use mixin runs after Fabric protection callbacks.')
+        region(t,'    private static void interact(','    public static void drop(','''    public static InteractionResult interact(Player player,net.minecraft.world.level.Level level,InteractionHand hand,net.minecraft.world.phys.BlockHitResult hit){
+        if(hand!=InteractionHand.MAIN_HAND||player.isShiftKeyDown()||!(level.getBlockEntity(hit.getBlockPos()) instanceof SpawnerBlockEntity spawner))return InteractionResult.PASS;
+        if(!player.mayBuild()||player.isSpectator())return InteractionResult.FAIL;
+        if(level instanceof ServerLevel server&&player instanceof ServerPlayer p){
+            if(!server.mayInteract(p,hit.getBlockPos())||!storage(spawner).stillValid(p))return InteractionResult.FAIL;
+            p.openMenu(new SimpleMenuProvider((id,inv,owner)->new StorageMenu(id,inv,storage(spawner)),Component.literal("Üreteç Deposu · 4 saniye")));
+        }
+        return InteractionResult.SUCCESS;
+    }
+''')
+    }
+    edit('screen/SpawnerStorageScreen'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n')
+        region(t,'    public static void install(){','    @Override protected void renderBg(', '    public static void install(){}\n')
+    }
+    edit('placement/PlacementClient'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n')
+        t=region(t,'    public static void install(','    private static void preview(','''    public static void install(){
+        net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(MENU);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client->{
+            while(MENU.consumeClick())if(client.player!=null&&client.screen==null)client.setScreen(new PlacementScreen());
+            if(client.screen!=null||client.player==null||!client.options.keyUse.isDown())useWasDown=false;
+            if(client.player==null)disable();
+        });
+        net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.LAST.register(PlacementClient::preview);
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((graphics,partial)->{
+            var client=Minecraft.getInstance();
+            if(enabled&&client.screen==null&&client.player!=null&&client.player.getMainHandItem().getItem() instanceof BlockItem)
+                graphics.drawCenteredString(client.font,"Alan: "+size+"×"+size+" · Sağ tık: yerleştir · "+MENU.getTranslatedKeyMessage().getString()+": boyut / kapat",client.getWindow().getGuiScaledWidth()/2,client.getWindow().getGuiScaledHeight()-65,0xE8C46E);
+        });
+    }
+    public static boolean tryUse(){
+        var client=Minecraft.getInstance();
+        if(client.screen!=null||client.player==null||!enabled||!(client.player.getMainHandItem().getItem() instanceof BlockItem))return false;
+        if(!useWasDown&&client.hitResult instanceof BlockHitResult hit&&hit.getType()==HitResult.Type.BLOCK){
+            AreaPlacement.CHANNEL.sendToServer(new AreaPlacement.Request(size));useWasDown=true;
+        }
+        return true;
+    }
+''')
+        t.replace('preview(RenderLevelStageEvent e)','preview(net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext e)').replace('        if(e.getStage()!=RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS)return;','').replace('e.getPoseStack()','e.matrixStack()').replace('e.getCamera()','e.camera()')
+    }
+    edit('verification/PlacementVerification'){t->
+        t=t.readLines().findAll{!it.startsWith('import net.minecraftforge.')}.join('\n')
+        t=t.replace('MinecraftForge.EVENT_BUS.addListener((BlockEvent.EntityPlaceEvent e)->{if(e.getPos().equals(blocked))e.setCanceled(true);});','net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((p,w,h,hit)->hit.getBlockPos().equals(blocked)?net.minecraft.world.InteractionResult.FAIL:net.minecraft.world.InteractionResult.PASS);')
+        t.replace('MinecraftForge.EVENT_BUS.addListener((PlayerInteractEvent.RightClickBlock e)->{if(e.getPos().equals(denied))e.setUseItem(Event.Result.DENY);});','net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((p,w,h,hit)->hit.getBlockPos().equals(denied)?net.minecraft.world.InteractionResult.FAIL:net.minecraft.world.InteractionResult.PASS);').replace('Forge EntityPlaceEvent cancellation','Fabric UseBlockCallback rejection')
+    }
+    edit('verification/ClientMarketVerification'){t->
+        t=t.replace('dev.eymen.balancedshop.placement.PlacementClient.MENU.getKey()','net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(dev.eymen.balancedshop.placement.PlacementClient.MENU)')
+        t=t.replace('var normal=new net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered(1,c.options.keyUse,net.minecraft.world.InteractionHand.MAIN_HAND);\n            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(normal);check(!normal.isCanceled(),','boolean normal=dev.eymen.balancedshop.placement.PlacementClient.tryUse();check(!normal,')
+        t=t.replace('var input=new net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered(1,c.options.keyUse,net.minecraft.world.InteractionHand.MAIN_HAND);\n            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(input);check(input.isCanceled(),','var nativeUse=Minecraft.class.getDeclaredMethod("startUseItem");nativeUse.setAccessible(true);nativeUse.invoke(c);check(dev.eymen.balancedshop.placement.PlacementClient.enabled(),')
+        t=t.replace('var event=new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock(p,net.minecraft.world.InteractionHand.MAIN_HAND,pos,new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos),net.minecraft.core.Direction.WEST,pos,false));\n                net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);\n                if(!event.isCanceled()','var outcome=p.gameMode.useItemOn(p,level,p.getMainHandItem(),net.minecraft.world.InteractionHand.MAIN_HAND,new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos),net.minecraft.core.Direction.WEST,pos,false));\n                if(!outcome.consumesAction()')
+        t.replace('Right click did not open native spawner storage','Fabric right click did not open native spawner storage')
+    }
+    edit('verification/SpawnerLootVerification'){t->t.replace('player.setPos(pos.getX()+20,pos.getY(),pos.getZ());', '''net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((p,w,h,hit)->hit.getBlockPos().equals(pos)?net.minecraft.world.InteractionResult.FAIL:net.minecraft.world.InteractionResult.PASS);
+        var blockedHit=new BlockHitResult(Vec3.atCenterOf(pos),net.minecraft.core.Direction.UP,pos,false);
+        var outcome=player.gameMode.useItemOn(player,level,player.getMainHandItem(),net.minecraft.world.InteractionHand.MAIN_HAND,blockedHit);
+        check(outcome==net.minecraft.world.InteractionResult.FAIL&&player.containerMenu==player.inventoryMenu,"Fabric protection callbacks prevent opening spawner storage");
+        player.setPos(pos.getX()+20,pos.getY(),pos.getZ());''').replace('"Breaking the block drops stored loot exactly once"','"Breaking the block drops stored loot exactly once: entities="+dropped.size()+", stored="+store.countItem(Items.DIAMOND)+", pending="+store.pending.size()+", tileDrops="+level.getGameRules().getBoolean(GameRules.RULE_DOBLOCKDROPS)')}
+    edit('verification/ServerVerification'){t->t.replace('Forge 1.20.1 / world economy + dynamic market','Fabric 1.20.1 / world economy + dynamic market')
+        .replace('private static int checks;','private static int checks;private static boolean attempted,prepared;')
+        .replace('ServerLifecycleEvents.SERVER_STARTED.register(ServerVerification::verify);', '''net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server->{
+            if(attempted||BalancedShop.catalogue()==null)return;
+            var level=server.overworld();var fixture=new net.minecraft.core.BlockPos(180,90,180);
+            // Entity visibility loads asynchronously. Wait before asserting spawned item drops.
+            if(!prepared){level.setChunkForced(11,11,true);prepared=true;}
+            if(!level.areEntitiesLoaded(net.minecraft.world.level.ChunkPos.asLong(11,11))||!level.isPositionEntityTicking(fixture))return;
+            attempted=true;try{verify(server);}finally{level.setChunkForced(11,11,false);}
+        });''')}
+    // Native replacements override only loader-specific classes, not the shared game logic.
+    project.copy {from '../fabric1201/java';into main}
+    File client=new File(generated,'client');project.delete(client)
+    def clientFile={String rel->rel.startsWith('dev/eymen/balancedshop/client/')||rel.startsWith('dev/eymen/balancedshop/screen/')||rel.startsWith('dev/eymen/balancedshop/keybind/')||rel.contains('/mixin/client/')||rel.endsWith('/platform/FabricClient.java')||rel.endsWith('/placement/PlacementClient.java')||rel.endsWith('/placement/PlacementScreen.java')||rel.endsWith('/verification/ClientVerification.java')||rel.endsWith('/verification/ClientMarketVerification.java')||rel.contains('/legacy/LegacyClientNetwork.java')}
+    fileTree(main).matching{include '**/*.java'}.each{f->String rel=main.toPath().relativize(f.toPath()).toString().replace('\\','/');if(clientFile(rel)){File dest=new File(client,rel);dest.parentFile.mkdirs();java.nio.file.Files.move(f.toPath(),dest.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING)}}
+}

@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - balanced-shop-multiversion-neoforge",
+        "order": 0
+      },
+      "projectName": "balanced-shop-multiversion-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@C:\\Users\\eymen\\OneDrive\\Desktop\\Minecraft Shop Mod 1.21.11\\versions\\neoforge\\build\\1.21.1\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@C:\\Users\\eymen\\OneDrive\\Desktop\\Minecraft Shop Mod 1.21.11\\versions\\neoforge\\build\\1.21.1\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbalancedshop%%C:\\Users\\eymen\\OneDrive\\Desktop\\Minecraft Shop Mod 1.21.11\\versions\\neoforge\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run\\1.21.1\\client",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - balanced-shop-multiversion-neoforge",
+        "order": 1
+      },
+      "projectName": "balanced-shop-multiversion-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@C:\\Users\\eymen\\OneDrive\\Desktop\\Minecraft Shop Mod 1.21.11\\versions\\neoforge\\build\\1.21.1\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@C:\\Users\\eymen\\OneDrive\\Desktop\\Minecraft Shop Mod 1.21.11\\versions\\neoforge\\build\\1.21.1\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dbalancedshop%%C:\\Users\\eymen\\OneDrive\\Desktop\\Minecraft Shop Mod 1.21.11\\versions\\neoforge\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run\\1.21.1\\server",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}

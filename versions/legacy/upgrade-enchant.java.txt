@@ -1,0 +1,16 @@
+            var existing=EnchantmentHelper.getEnchantments(source);
+            for(var book:books.all()){
+                var enchantment=BuiltInRegistries.ENCHANTMENT.get(new net.minecraft.resources.ResourceLocation(book.id()));
+                if(enchantment==null)continue;
+                if(source.getItem()!=Items.BOOK&&source.getItem()!=Items.ENCHANTED_BOOK&&!enchantment.canEnchant(source))continue;
+                if(existing.getOrDefault(enchantment,0)>=book.level())continue;
+                if(existing.keySet().stream().anyMatch(other->other!=enchantment&&!other.isCompatibleWith(enchantment)))continue;
+                if(!query.isEmpty()&&!book.id().contains(query)&&!BookCatalogue.name(book.book()).getString().toLowerCase(Locale.ROOT).contains(query))continue;
+                ItemStack result=source.copyWithCount(1);
+                if(result.is(Items.BOOK)){result=new ItemStack(Items.ENCHANTED_BOOK);if(source.hasCustomHoverName())result.setHoverName(source.getHoverName());}
+                var mutable=new HashMap<>(existing);mutable.put(enchantment,book.level());EnchantmentHelper.setEnchantments(mutable,result);
+                long targetValue=value(catalogue,books,source)+book.buy();
+                var oldBook=books.entry(book.id(),existing.getOrDefault(enchantment,0));if(oldBook!=null)targetValue-=oldBook.buy();
+                if(source.isDamageableItem())targetValue=value(catalogue,books,result);
+                if(targetValue>sourceValue)found.add(new Target(book.id()+"@"+book.level(),result,targetValue));
+            }

@@ -1,0 +1,11 @@
+{
+  "startingBalance": 100000,
+  "sellRatio": 0.25,
+  "allowRestrictedItems": false,
+  "sellingEnabled": true,
+  "transactionCooldownTicks": 4,
+  "prices": {},
+  "namespaceMultipliers": {
+    "create": 1.25
+  }
+}

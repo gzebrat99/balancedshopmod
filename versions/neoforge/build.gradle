@@ -1,0 +1,20 @@
+plugins { id 'java-library'; id 'net.neoforged.moddev' version '2.0.148' }
+def matrix = new groovy.json.JsonSlurper().parse(file('../matrix.json'))
+ext.target = matrix.find { it.minecraft == providers.gradleProperty('mc').get() }
+if(target == null) throw new GradleException('Unknown Minecraft release')
+version=target.neoforgeModVersion ?: '1.7.0'
+group='dev.eymen.balancedshop'
+layout.buildDirectory=file("build/${target.minecraft}")
+base { archivesName="neoforge-balanced-shop-${target.minecraft}" }
+java { toolchain.languageVersion=JavaLanguageVersion.of(21); withSourcesJar() }
+apply from: '../sources.gradle'
+neoForge {
+    enable { version=target.neoforge; disableRecompilation=true }
+    runs {
+        client { client(); gameDirectory=project.file("run/${target.minecraft}/client");if(project.hasProperty('verify'))systemProperty 'balancedshop.verify','true' }
+        server { server(); gameDirectory=project.file("run/${target.minecraft}/server"); programArgument '--nogui';if(project.hasProperty('verify'))systemProperty 'balancedshop.verify','true' }
+    }
+    mods { balancedshop { sourceSet sourceSets.main } }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding='UTF-8'; options.release=target.java as int }
+jar { from('../../LICENSE') }

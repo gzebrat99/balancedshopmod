@@ -1,0 +1,35 @@
+plugins { id 'fabric-loom' version '1.15.4' }
+def matrix = new groovy.json.JsonSlurper().parse(file('../matrix.json'))
+ext.target = matrix.find { it.minecraft == providers.gradleProperty('mc').get() }
+if (target == null) throw new GradleException('Unknown Minecraft release')
+version = target.fabricModVersion ?: '2.0.0'
+group = 'dev.eymen.balancedshop'
+layout.buildDirectory = file("build/${target.minecraft}")
+base { archivesName = "fabric-balanced-shop-${target.minecraft}" }
+repositories { mavenCentral() }
+dependencies {
+    minecraft "com.mojang:minecraft:${target.minecraft}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${target.fabricLoader}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${target.fabricApi}"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testImplementation "net.fabricmc:fabric-loader-junit:${target.fabricLoader}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+loom {
+    accessWidenerPath = file('../../src/main/resources/balancedshop.accesswidener')
+    splitEnvironmentSourceSets()
+    mods { balancedshop { sourceSet sourceSets.main; sourceSet sourceSets.client } }
+    runs {
+        client { runDir "run/${target.minecraft}/client"; if(project.hasProperty('verify'))vmArg '-Dbalancedshop.verify=true' }
+        server { runDir "run/${target.minecraft}/server"; programArg '--nogui'; if(project.hasProperty('verify'))vmArg '-Dbalancedshop.verify=true' }
+    }
+}
+java { toolchain.languageVersion=JavaLanguageVersion.of(target.java as int); withSourcesJar() }
+apply from: '../sources.gradle'
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = target.java as int }
+jar { from('../../LICENSE') }
+tasks.register('generateEconomyTests',Copy){from '../../src/test/java';include '**/EconomyTest.java';into layout.buildDirectory.dir('generated/test')}
+sourceSets.test.java.setSrcDirs([layout.buildDirectory.dir('generated/test')])
+tasks.named('compileTestJava'){dependsOn 'generateEconomyTests'}
+test {useJUnitPlatform()}

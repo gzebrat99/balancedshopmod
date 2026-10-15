@@ -1,0 +1,2 @@
+PASS 24 assertions
+All 7 GUIs initialized/rendered and received native packets

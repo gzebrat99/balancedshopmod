@@ -1,0 +1,12 @@
+{
+    "model":  {
+                  "tints":  [
+                                {
+                                    "value":  15308638,
+                                    "type":  "minecraft:constant"
+                                }
+                            ],
+                  "model":  "balancedshop:item/coin",
+                  "type":  "minecraft:model"
+              }
+}

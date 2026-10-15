@@ -1,0 +1,1 @@
+65b1fc287cef5509e55541974015ec82a50bfeac76e7916ffdc5a1bd31bb7a8a  balanced-shop-1.21.11-1.2.0.jar

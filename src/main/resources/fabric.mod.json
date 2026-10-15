@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "balancedshop",
+  "version": "${version}",
+  "name": "Fabric Balanced Shop",
+  "description": "Farm market, persistent wallets, all enchantments, mob spawners, chance upgrades, physical coins and Mouse 4 vein mining.",
+  "authors": [
+    "Eymen"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "accessWidener": "balancedshop.accesswidener",
+  "mixins": [
+    "balancedshop.mixins.json"
+  ],
+  "entrypoints": {
+    "main": [
+      "dev.eymen.balancedshop.BalancedShop"
+    ],
+    "client": [
+      "dev.eymen.balancedshop.client.ShopClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": ">=0.141.6"
+  }
+}

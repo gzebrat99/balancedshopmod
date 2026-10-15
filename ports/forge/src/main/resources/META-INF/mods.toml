@@ -1,0 +1,21 @@
+modLoader="javafml"
+loaderVersion="[61,)"
+license="MIT"
+[[mods]]
+modId="balancedshop"
+version="${version}"
+displayName="Forge Balanced Shop"
+authors="Eymen"
+description='''Shop, selling, all enchanted books, uncrafting, lucky upgrades, physical coins and Create traders.'''
+[[dependencies.balancedshop]]
+modId="forge"
+mandatory=true
+versionRange="[61.2.0,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.balancedshop]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.21.11]"
+ordering="NONE"
+side="BOTH"

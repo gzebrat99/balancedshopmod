@@ -1,0 +1,11 @@
+        for(var enchantment:net.minecraft.core.registries.BuiltInRegistries.ENCHANTMENT) {
+            var key=net.minecraft.core.registries.BuiltInRegistries.ENCHANTMENT.getKey(enchantment);
+            String id=key.toString();
+            for(int level=enchantment.getMinLevel();level<=Math.min(255,enchantment.getMaxLevel());level++) {
+                long price=config.enchantmentPrices.getOrDefault(id+"@"+level,
+                    price(key.getNamespace(),key.getPath(),level,enchantment.getRarity().getWeight(),enchantment.getMinCost(level),
+                        enchantment.isTreasureOnly(),enchantment.isCurse(),config.priceMultiplier,
+                        config.namespaceMultipliers.getOrDefault(key.getNamespace(),1.0)));
+                entries.put(id+"@"+level,new Entry(id,level,price,net.minecraft.world.item.EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantment,level))));
+            }
+        }
